@@ -82,7 +82,7 @@ scheduler:
 # ── Precisión y rendimiento ────────────────────────────────────────────────────
 precision:
   amp: true                       # Automatic Mixed Precision (fp16)
-  compile: true                   # torch.compile (PyTorch 2.x, +15-30% velocidad)
+  compile: false
   compile_mode: "reduce-overhead" # "default" | "reduce-overhead" | "max-autotune"
   channels_last: true             # NHWC memory format (más rápido en A30)
 

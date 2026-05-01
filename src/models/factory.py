@@ -1,16 +1,18 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
-import timm
 import torch
 import torch.nn as nn
+from module import calculate_drop_path_rates
 from omegaconf import DictConfig
-from timm.layers import calculate_drop_path_rates
 
 from models.metaformer import BlockConfig, Metaformer, MetaFormerConfig, StageConfig
-from models.mixer.gated_cnn import GatedCNNMixerConfig
+from models.mixer import (
+    DeformableAttentionMixerConfig,
+    GatedCNNMixerConfig,
+    MambaMixerConfig,
+)
 
 log = logging.getLogger(__name__)
 
@@ -40,12 +42,84 @@ def build_backbone(cfg: DictConfig) -> nn.Module:
 
 
 def _build_classifier(cfg: DictConfig) -> nn.Module:
+
+    if cfg.model.arch == "gated_cnn-mamba":
+        return _build_gcnn_backbone(cfg)
+    elif cfg.model.arch == "gated_cnn-dat":
+        return _build_dat_backbone(cfg)
+    elif cfg.model.arch == "gated_cnn":
+        return _build_dat_backbone(cfg)
+    else:
+        raise ValueError(f"Unknown arch {cfg.model.arch}")
+
+
+def _build_dat_backbone(cfg: DictConfig) -> nn.Module:
     drop_path_rate = cfg.get("drop_path_rate", 0.0)
     depths = [3, 3, 9, 3]
-    dp_rates = calculate_drop_path_rates(drop_path_rate, sum(depths))
+    dp_rates = calculate_drop_path_rates(drop_path_rate, depths)
 
     config = MetaFormerConfig(
-        num_classes=10,
+        num_classes=cfg.num_classes,
+        stages=[
+            StageConfig(
+                in_dim=96,
+                out_dim=192,
+                mixer_configs=[GatedCNNMixerConfig(96)] * depths[0],
+                block_cfgs=[
+                    BlockConfig(use_mlp=False, drop_path=dp_rates[i])
+                    for i in range(sum(depths[:0]), sum(depths[:1]))
+                ],
+            ),
+            StageConfig(
+                in_dim=192,
+                out_dim=384,
+                mixer_configs=[GatedCNNMixerConfig(192)] * depths[1],
+                block_cfgs=[
+                    BlockConfig(use_mlp=False, drop_path=dp_rates[i])
+                    for i in range(sum(depths[:1]), sum(depths[:2]))
+                ],
+            ),
+            StageConfig(
+                in_dim=320,
+                out_dim=320,
+                mixer_configs=[
+                    DeformableAttentionMixerConfig(
+                        d_model=320, num_heads=8, n_groups=4, stride=16, ksize=7
+                    )
+                ]
+                * depths[2],
+                block_cfgs=[
+                    BlockConfig(use_mlp=True, drop_path=dp_rates[i])
+                    for i in range(sum(depths[:2]), sum(depths[:3]))
+                ],
+            ),
+            StageConfig(
+                in_dim=320,
+                out_dim=512,
+                mixer_configs=[
+                    DeformableAttentionMixerConfig(
+                        d_model=512, num_heads=16, n_groups=8, stride=32, ksize=7
+                    )
+                ]
+                * depths[3],
+                block_cfgs=[
+                    BlockConfig(use_mlp=True, drop_path=dp_rates[i])
+                    for i in range(sum(depths[:3]), sum(depths[:4]))
+                ],
+            ),
+        ],
+    )
+    model = Metaformer(config)
+    return model
+
+
+def _build_gcnn_backbone(cfg: DictConfig) -> nn.Module:
+    drop_path_rate = cfg.get("drop_path_rate", 0.0)
+    depths = [3, 3, 9, 3]
+    dp_rates = calculate_drop_path_rates(drop_path_rate, depths)
+
+    config = MetaFormerConfig(
+        num_classes=cfg.num_classes,
         stages=[
             StageConfig(
                 in_dim=96,
@@ -87,6 +161,56 @@ def _build_classifier(cfg: DictConfig) -> nn.Module:
     )
     model = Metaformer(config)
 
+    return model
+
+
+def _build_mamba_backbone(cfg: DictConfig) -> nn.Module:
+    drop_path_rate = cfg.get("drop_path_rate", 0.0)
+    depths = [3, 3, 9, 3]
+    dp_rates = calculate_drop_path_rates(drop_path_rate, depths)
+
+    config = MetaFormerConfig(
+        num_classes=cfg.num_classes,
+        stages=[
+            StageConfig(
+                in_dim=96,
+                out_dim=192,
+                mixer_configs=[GatedCNNMixerConfig(96)] * depths[0],
+                block_cfgs=[
+                    BlockConfig(use_mlp=False, drop_path=dp_rates[i])
+                    for i in range(sum(depths[:0]), sum(depths[:1]))
+                ],
+            ),
+            StageConfig(
+                in_dim=192,
+                out_dim=384,
+                mixer_configs=[GatedCNNMixerConfig(192)] * depths[1],
+                block_cfgs=[
+                    BlockConfig(use_mlp=False, drop_path=dp_rates[i])
+                    for i in range(sum(depths[:1]), sum(depths[:2]))
+                ],
+            ),
+            StageConfig(
+                in_dim=384,
+                out_dim=576,
+                mixer_configs=[MambaMixerConfig(384)] * depths[2],
+                block_cfgs=[
+                    BlockConfig(use_mlp=True, drop_path=dp_rates[i])
+                    for i in range(sum(depths[:2]), sum(depths[:3]))
+                ],
+            ),
+            StageConfig(
+                in_dim=576,
+                out_dim=576,
+                mixer_configs=[MambaMixerConfig(576)] * depths[3],
+                block_cfgs=[
+                    BlockConfig(use_mlp=True, drop_path=dp_rates[i])
+                    for i in range(sum(depths[:3]), sum(depths[:4]))
+                ],
+            ),
+        ],
+    )
+    model = Metaformer(config)
     return model
 
 

@@ -9,27 +9,27 @@ defaults:
 # ── Experimento ────────────────────────────────────────────────────────────────
 experiment:
   name: "backbone_classification"
-  task: "classification"          # classification | detection | segmentation
+  task: "classification" # classification | detection | segmentation
   seed: 42
-  deterministic: true             # CuDNN deterministic (ligero coste de velocidad)
-  benchmark: false                # CuDNN benchmark (True si input size fijo)
+  deterministic: true # CuDNN deterministic (ligero coste de velocidad)
+  benchmark: false # CuDNN benchmark (True si input size fijo)
 
 # ── Modelo ─────────────────────────────────────────────────────────────────────
 model:
-  arch: "resnet50"                # nombre compatible con timm
-  pretrained: false               # entrenamiento desde cero
-  num_classes: 10
+  arch: "resnet50" # nombre compatible con timm
+  pretrained: false # entrenamiento desde cero
+  num_classes: 1000
   drop_rate: 0.0
-  drop_path_rate: 0.1             # stochastic depth para ViT/ConvNeXt
+  drop_path_rate: 0.1 # stochastic depth para ViT/ConvNeXt
 
 # ── Dataset ────────────────────────────────────────────────────────────────────
 data:
   name: "imagenet-1k"
   root: "/data/imagenet"
-  num_classes: 10
+  num_classes: 1000
   input_size: 160
-  mean: [0.485, 0.456, 0.406]    # stats ImageNet
-  std:  [0.229, 0.224, 0.225]
+  mean: [0.485, 0.456, 0.406] # stats ImageNet
+  std: [0.229, 0.224, 0.225]
   workers: 8
   pin_memory: true
   prefetch_factor: 2
@@ -41,9 +41,10 @@ augmentation:
   train:
     random_resized_crop: 224
     horizontal_flip_p: 0.5
-    color_jitter: {brightness: 0.4, contrast: 0.4, saturation: 0.4, hue: 0.1, p: 0.8}
+    color_jitter:
+      { brightness: 0.4, contrast: 0.4, saturation: 0.4, hue: 0.1, p: 0.8 }
     grayscale_p: 0.02
-    gaussian_blur_p: 0.1   # nuevo
+    gaussian_blur_p: 0.1 # nuevo
   val:
     resize: 256
     center_crop: 224
@@ -51,18 +52,18 @@ augmentation:
 # ── Training ───────────────────────────────────────────────────────────────────
 training:
   epochs: 35
-  batch_size: 512                 # por GPU
+  batch_size: 512 # por GPU
   grad_accumulation_steps: 1
   grad_clip_norm: 1.0
 
 # ── Optimizador ────────────────────────────────────────────────────────────────
 optimizer:
   name: "adamw"
-  lr: 1.0e-3                      # lr base (se escala con batch)
+  lr: 1.0e-3 # lr base (se escala con batch)
   weight_decay: 0.05
   betas: [0.9, 0.999]
   eps: 1.0e-8
-  layer_decay: null               # útil para ViTs (ej: 0.75)
+  layer_decay: null # útil para ViTs (ej: 0.75)
 
 # ── LR Scheduler ──────────────────────────────────────────────────────────────
 scheduler:
@@ -72,10 +73,10 @@ scheduler:
 
 # ── Precisión y rendimiento ────────────────────────────────────────────────────
 precision:
-  amp: true                       # Automatic Mixed Precision (fp16)
-  compile: true                   # torch.compile (PyTorch 2.x, +15-30% velocidad)
+  amp: true # Automatic Mixed Precision (fp16)
+  compile: false # torch.compile - DESACTIVADO por incompatibilidad con triton 3.6.0
   compile_mode: "reduce-overhead" # "default" | "reduce-overhead" | "max-autotune"
-  channels_last: true             # NHWC memory format (más rápido en A30)
+  channels_last: true # NHWC memory format (más rápido en A30)
 
 # ── EMA ────────────────────────────────────────────────────────────────────────
 ema:
@@ -89,17 +90,17 @@ checkpoint:
   monitor: "val/acc_top1"
   mode: "max"
   save_last: true
-  resume_from: null               # path a checkpoint para reanudar
+  resume_from: null # path a checkpoint para reanudar
 
 # ── Logging ────────────────────────────────────────────────────────────────────
 logging:
   wandb:
     enabled: true
     project: "tfg-backbones"
-    entity: null                  # tu usuario de wandb
+    entity: null # tu usuario de wandb
     tags: ["classification", "from-scratch", "imagenet100"]
     log_model: true
-    log_freq: 50                  # cada N steps
+    log_freq: 50 # cada N steps
   tensorboard:
     enabled: true
     log_dir: "runs/${experiment.name}"

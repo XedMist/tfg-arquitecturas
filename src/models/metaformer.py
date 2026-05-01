@@ -3,18 +3,9 @@ from typing import Any, List, Optional, Sequence
 
 import torch
 import torch.nn as nn
-from omegaconf import DictConfig
-from timm.layers import (
-    DropPath,
-    LayerScale,
-    Mlp,
-    calculate_drop_path_rates,
-    trunc_normal_,
-)
-from timm.layers.classifier import ClassifierHead
 
 from models.mixer import BaseMixerConfig, build_mixer
-from models.module import Downsample, Mlp
+from models.module import Downsample, DropPath, LayerScale, Mlp
 from models.module.stem import StemLayer
 
 MixerClass = type[nn.Module]
@@ -47,9 +38,7 @@ class MetaformerBlock(nn.Module):
 
         self.norm1 = nn.LayerNorm(d_model)
         self.mixer = mixer
-        self.ls1 = (
-            LayerScale(d_model, init_values=ls_init) if ls_init else nn.Identity()
-        )
+        self.ls1 = LayerScale(d_model, init_value=ls_init) if ls_init else nn.Identity()
         self.drop_path1 = (
             DropPath(cfg.drop_path) if cfg.drop_path > 0.0 else nn.Identity()
         )
@@ -58,7 +47,7 @@ class MetaformerBlock(nn.Module):
             self.norm2 = nn.LayerNorm(d_model)
             self.mlp = Mlp(d_model, mlp_ratio=cfg.mlp_ratio, dropout=cfg.dropout)
             self.ls2 = (
-                LayerScale(d_model, init_values=ls_init) if ls_init else nn.Identity()
+                LayerScale(d_model, init_value=ls_init) if ls_init else nn.Identity()
             )
             self.drop_path2 = (
                 DropPath(cfg.drop_path) if cfg.drop_path > 0.0 else nn.Identity()
@@ -161,10 +150,9 @@ class Metaformer(nn.Module):
 
         self.norm = nn.LayerNorm(final_dim)
 
-        self.head = ClassifierHead(
+        self.head = nn.Linear(
             final_dim,
             config.num_classes,
-            pool_type="",
         )
 
         self.apply(self._init_weights)
@@ -173,14 +161,15 @@ class Metaformer(nn.Module):
         x = self.stem(x)
         for stage in self.stages:
             x = stage(x)
-        x = x.mean(dim=(1, 2))
         x = self.norm(x)
+
+        x = x.mean(dim=(1, 2))
         return self.head(x)
 
     @staticmethod
     def _init_weights(m: nn.Module) -> None:
         if isinstance(m, (nn.Linear, nn.Conv2d)):
-            trunc_normal_(m.weight, std=0.02)
+            nn.init.trunc_normal_(m.weight, std=0.02)
             if m.bias is not None:
                 nn.init.zeros_(m.bias)
         elif isinstance(m, nn.LayerNorm):

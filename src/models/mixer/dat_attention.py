@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 import einops
 import numpy as np
 import torch
@@ -5,8 +7,24 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.init import trunc_normal_
 
-from models.mixer.mixer_config import DeformableAttentionMixerConfig
+from models.mixer.mixer_config import BaseMixerConfig
 from models.mixer.registry import register_mixer
+
+
+@dataclass
+class DeformableAttentionMixerConfig(BaseMixerConfig):
+    num_heads: int = 8
+    n_groups: int = 4
+    stride: int = 2
+    offset_range_factor: float = -1.0
+    no_off: bool = False
+    ksize: int = 5
+    attn_drop: float = 0.0
+    proj_drop: float = 0.0
+    use_pe: bool = True
+    dwc_pe: bool = True
+    fixed_pe: bool = False
+    log_cpb: bool = False
 
 
 class LayerNormProxy(nn.Module):
@@ -29,16 +47,14 @@ class DATDeformableMixer(nn.Module):
 
     def __init__(
         self,
-        dim: int,
         config: DeformableAttentionMixerConfig,
-        **kwargs,
     ):
         super().__init__()
         self.dwc_pe = config.dwc_pe
-        self.n_head_channels = dim // config.num_heads
+        self.n_head_channels = config.d_model // config.num_heads
         self.scale = self.n_head_channels**-0.5
         self.n_heads = config.num_heads
-        self.nc = dim
+        self.nc = config.d_model
         self.n_groups = config.n_groups
         self.n_group_channels = self.nc // self.n_groups
         self.n_group_heads = self.n_heads // self.n_groups

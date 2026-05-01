@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import csv
 import logging
 import sys
 import time
 from pathlib import Path
 from typing import Any, Optional, Union
 
+from rich import print as rprint
 from rich.console import Console
 from rich.logging import RichHandler
 from rich.progress import (
@@ -19,7 +21,7 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 from rich.table import Table
-from rich import print as rprint
+
 
 def setup_logging(level: str = "INFO", log_file: Optional[Path] = None) -> None:
     handlers: list[logging.Handler] = [
@@ -69,6 +71,9 @@ class ExperimentLogger:
         self._tb_writer = None
         self._step = 0
 
+        self._csv_path = self.output_dir / "training_metrics.csv"
+        self._csv_file = None
+        self._csv_writer = None
 
     def log(
         self,
@@ -88,6 +93,17 @@ class ExperimentLogger:
                 if isinstance(v, (int, float)):
                     self._tb_writer.add_scalar(k, v, global_step=step)
 
+    def log_metrics_csv(self, metrics: dict[str, Any]) -> None:
+        if self._csv_writer is None:
+            self._csv_file = open(self._csv_path, "w", newline="", encoding="utf-8")
+            fieldnames = sorted(metrics.keys())
+            self._csv_writer = csv.DictWriter(self._csv_file, fieldnames=fieldnames)
+            self._csv_writer.writeheader()
+            self._csv_file.flush()
+        row = {k: v for k, v in metrics.items() if isinstance(v, (int, float, str))}
+        self._csv_writer.writerow(row)
+        self._csv_file.flush()
+
     def log_image(
         self,
         key: str,
@@ -103,8 +119,10 @@ class ExperimentLogger:
             )
         if self._tb_writer is not None:
             import torch
+
             if isinstance(images, torch.Tensor) and images.dim() == 4:
                 from torchvision.utils import make_grid
+
                 grid = make_grid(images[:8], normalize=True)
                 self._tb_writer.add_image(key, grid, global_step=step)
 
@@ -130,14 +148,18 @@ class ExperimentLogger:
             artifact.add_file(str(model_path))
             self._wandb.log_artifact(artifact)
 
-    def print_metrics_table(self, metrics: dict[str, float], title: str = "Métricas") -> None:
+    def print_metrics_table(
+        self, metrics: dict[str, float], title: str = "Métricas"
+    ) -> None:
         console = Console()
         table = Table(title=title, show_header=True, header_style="bold cyan")
         table.add_column("Métrica", style="dim", width=30)
         table.add_column("Valor", justify="right")
 
         for k, v in sorted(metrics.items()):
-            color = "green" if "acc" in k or "iou" in k or "map" in k.lower() else "white"
+            color = (
+                "green" if "acc" in k or "iou" in k or "map" in k.lower() else "white"
+            )
             table.add_row(k, f"[{color}]{v:.4f}[/{color}]")
 
         console.print(table)
@@ -147,8 +169,11 @@ class ExperimentLogger:
             self._tb_writer.close()
         if self._wandb is not None:
             self._wandb.finish()
+        if self._csv_file is not None:
+            self._csv_file.close()
+            self._csv_file = None
+            self._csv_writer = None
         self._log.info("Logger cerrado correctamente.")
-
 
 
 def make_progress_bar() -> Progress:
