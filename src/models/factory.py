@@ -73,7 +73,7 @@ def _build_dat_backbone(cfg: DictConfig) -> nn.Module:
             ),
             StageConfig(
                 in_dim=192,
-                out_dim=384,
+                out_dim=320,
                 mixer_configs=[GatedCNNMixerConfig(192)] * depths[1],
                 block_cfgs=[
                     BlockConfig(use_mlp=False, drop_path=dp_rates[i])
@@ -82,7 +82,7 @@ def _build_dat_backbone(cfg: DictConfig) -> nn.Module:
             ),
             StageConfig(
                 in_dim=320,
-                out_dim=320,
+                out_dim=512,
                 mixer_configs=[
                     DeformableAttentionMixerConfig(
                         d_model=320, num_heads=8, n_groups=4, stride=16, ksize=7
@@ -95,7 +95,7 @@ def _build_dat_backbone(cfg: DictConfig) -> nn.Module:
                 ],
             ),
             StageConfig(
-                in_dim=320,
+                in_dim=512,
                 out_dim=512,
                 mixer_configs=[
                     DeformableAttentionMixerConfig(

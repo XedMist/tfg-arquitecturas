@@ -123,10 +123,17 @@ class Stage(nn.Module):
             else nn.Identity()
         )
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self,
+        x: torch.Tensor,
+        return_before_downsample: bool = False,
+    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
         for block in self.blocks:
             x = block(x)
+        pre_down = x
         x = self.downsample(x)
+        if return_before_downsample:
+            return x, pre_down
         return x
 
 
@@ -155,7 +162,20 @@ class Metaformer(nn.Module):
             config.num_classes,
         )
 
-        self.apply(self._init_weights)
+        self._initialize_weights()
+
+    def _initialize_weights(self) -> None:
+        for name, m in self.named_modules():
+            if "mixer.inner" in name:
+                continue
+
+            if isinstance(m, (nn.Linear, nn.Conv2d)):
+                nn.init.trunc_normal_(m.weight, std=0.02)
+                if m.bias is not None:
+                    nn.init.zeros_(m.bias)
+            elif isinstance(m, nn.LayerNorm):
+                nn.init.ones_(m.weight)
+                nn.init.zeros_(m.bias)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.stem(x)
@@ -165,13 +185,3 @@ class Metaformer(nn.Module):
 
         x = x.mean(dim=(1, 2))
         return self.head(x)
-
-    @staticmethod
-    def _init_weights(m: nn.Module) -> None:
-        if isinstance(m, (nn.Linear, nn.Conv2d)):
-            nn.init.trunc_normal_(m.weight, std=0.02)
-            if m.bias is not None:
-                nn.init.zeros_(m.bias)
-        elif isinstance(m, nn.LayerNorm):
-            nn.init.ones_(m.weight)
-            nn.init.zeros_(m.bias)

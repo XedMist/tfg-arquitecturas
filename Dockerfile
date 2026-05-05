@@ -54,19 +54,22 @@ RUN git clone --depth 1 https://github.com/hustvl/Vim.git /opt/Vim && \
 RUN git clone --depth 1 https://github.com/yuweihao/MambaOut.git /opt/MambaOut
 
 RUN pip install -c /tmp/constraints.txt \
-    "albumentations>=2.0.8" \
     "hydra-core>=1.3.2" \
     "omegaconf>=2.3.0" \
     "rich>=15.0.0" \
     "torchmetrics>=1.9.0"
 
+# Install OpenMMLab dependencies (mmcv, mmdet, mmengine)
+RUN pip install -c /tmp/constraints.txt openmim && \
+    mim install "mmengine>=0.10.0" "mmcv>=2.1.0" "mmdet>=3.3.0"
+
 ENV PYTHONPATH="/opt/Vim:/opt/Vim/vim:/opt/MambaOut:/workspace/src"
 
 WORKDIR /workspace
 
-COPY pyproject.toml README.md ./
+COPY pyproject.toml ./
 COPY src/ ./src/
 
 RUN mkdir -p data outputs checkpoints
 
-CMD ["python", "src/main.py"]
+CMD ["python", "src/train.py"]
