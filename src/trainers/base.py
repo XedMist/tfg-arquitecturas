@@ -48,14 +48,14 @@ class BaseTrainer:
         # stabler).  Fall back to float16 otherwise.  DeiT-III and Swin V2
         # both use bf16 when available.
         self._amp_enabled: bool = cfg.precision.amp
-        self._amp_dtype: torch._C.dtype = self._resolve_amp_dtype(
+        self._amp_dtype: torch.dtype = self._resolve_amp_dtype(
             cfg.precision.get("dtype", "auto")
         )
         # GradScaler is a no-op when bfloat16 is used (no underflow risk),
         # but we keep it for fp16 and for the unified code path.
         self.scaler = GradScaler(
             device=self.device,
-            enabled=self._amp_enabled and self._amp_dtype == torch._C.float16,
+            enabled=self._amp_enabled and self._amp_dtype == torch.float16,
         )
 
         # ── Training hyper-params ─────────────────────────────────────────
@@ -274,7 +274,7 @@ class BaseTrainer:
     # ── Private utilities ─────────────────────────────────────────────────────
 
     @staticmethod
-    def _resolve_amp_dtype(dtype_str: str) -> torch._C.dtype:
+    def _resolve_amp_dtype(dtype_str: str) -> torch.dtype:
         """Return the AMP compute dtype.
 
         "auto"    → bf16 on Ampere+ (sm_80+), fp16 otherwise.
@@ -282,9 +282,9 @@ class BaseTrainer:
         "float16" → torch.float16 unconditionally.
         """
         if dtype_str == "bfloat16":
-            return torch._C.bfloat16
+            return torch.bfloat16
         if dtype_str == "float16":
-            return torch._C.float16
+            return torch.float16
         if torch.cuda.is_available() and torch.cuda.get_device_capability()[0] >= 8:
-            return torch._C.bfloat16
-        return torch._C.float16
+            return torch.bfloat16
+        return torch.float16

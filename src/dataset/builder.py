@@ -6,11 +6,11 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Callable, Optional
 
-import albumentations as A
-import cv2
 import torch
-from albumentations.pytorch import ToTensorV2
+import torchvision.datasets as tvdatasets
+import torchvision.transforms as T
 from omegaconf import DictConfig
+from PIL import Image
 from torch.utils.data import DataLoader, Dataset
 
 IMAGENET_MEAN: tuple[float, float, float] = (0.485, 0.456, 0.406)
@@ -18,7 +18,7 @@ IMAGENET_STD: tuple[float, float, float] = (0.229, 0.224, 0.225)
 
 
 class ImageFolderAlbu(Dataset):
-    """ImageFolder-compatible dataset backed by Albumentations transforms.
+    """ImageFolder-compatible dataset backed by torchvision transforms.
 
     Expects the following directory layout (torchvision ImageFolder style)::
 
@@ -34,7 +34,7 @@ class ImageFolderAlbu(Dataset):
 
     Args:
         root:             Path to the split directory (e.g. ``data/train``).
-        transform:        Albumentations ``Compose`` pipeline.
+        transform:        ``torchvision.transforms.Compose`` pipeline.
         subset_fraction:  Fraction of images to keep per class (1.0 = all).
                           Stratified sampling preserves class balance.
         subset_seed:      RNG seed for reproducible sub-sampling.
@@ -118,13 +118,90 @@ class ImageFolderAlbu(Dataset):
     def __getitem__(self, idx: int) -> tuple[torch.Tensor, int]:
         path, label = self.samples[idx]
 
-        image = cv2.imread(path)
-        if image is None:
-            raise OSError(f"Could not read image: '{path}'")
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        image = Image.open(path).convert("RGB")
 
         if self.transform is not None:
-            image = self.transform(image=image)["image"]
+            image = self.transform(image)
+
+        return image, label
+
+
+class ImagenetteDataset(Dataset):
+    """TorchImagenette with torchvision transforms."""
+
+    _URL = "https://s3.amazonaws.com/fast-ai-modelzoo/imagenette2.tgz"
+    _VALID_EXT: frozenset[str] = frozenset({".jpg", ".jpeg", ".png", ".webp"})
+
+    def __init__(
+        self,
+        root: str | Path,
+        split: str = "train",
+        transform: Optional[Callable] = None,
+        subset_fraction: float = 1.0,
+        subset_seed: int = 42,
+    ) -> None:
+        if not (0.0 < subset_fraction <= 1.0):
+            raise ValueError(
+                f"subset_fraction must be in (0, 1], got {subset_fraction}"
+            )
+
+        self.root = Path(root)
+        self.split = split
+        self.transform = transform
+        self.subset_fraction = subset_fraction
+        self.subset_seed = subset_seed
+        self.classes: list[str] = []
+
+        self._dataset = tvdatasets.Imagenette(
+            root=str(root),
+            split=split,
+            download=True,
+        )
+        self._load_samples()
+
+    def _load_samples(self) -> None:
+        class_folders = sorted(
+            d for d in (self.root / self.split).iterdir() if d.is_dir()
+        )
+        if not class_folders:
+            raise RuntimeError(
+                f"No class folders found in '{self.root / self.split}'. "
+                f"Ensure Imagenette is downloaded."
+            )
+
+        self.classes = [d.name for d in class_folders]
+        class_to_idx = {cls: i for i, cls in enumerate(self.classes)}
+
+        samples_per_class: dict[int, list[tuple[str, int]]] = defaultdict(list)
+        for cls_dir in class_folders:
+            idx = class_to_idx[cls_dir.name]
+            for img_path in cls_dir.iterdir():
+                if img_path.suffix.lower() in self._VALID_EXT:
+                    samples_per_class[idx].append((str(img_path), idx))
+
+        if not any(samples_per_class.values()):
+            raise RuntimeError(f"No valid images in '{self.root / self.split}'.")
+
+        rng = random.Random(self.subset_seed)
+        all_samples: list[tuple[str, int]] = []
+
+        for cls_idx in sorted(samples_per_class.keys()):
+            cls_samples = sorted(samples_per_class[cls_idx], key=lambda x: x[0])
+            n_keep = max(1, math.ceil(len(cls_samples) * self.subset_fraction))
+            all_samples.extend(rng.sample(cls_samples, n_keep))
+
+        self.samples = all_samples
+
+    def __len__(self) -> int:
+        return len(self.samples)
+
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, int]:
+        path, label = self.samples[idx]
+
+        image = Image.open(path).convert("RGB")
+
+        if self.transform is not None:
+            image = self.transform(image)
 
         return image, label
 
@@ -134,42 +211,45 @@ class ImageFolderAlbu(Dataset):
 # ---------------------------------------------------------------------------
 
 
-def build_train_transform(cfg: DictConfig) -> A.Compose:
-    """DeiT / Swin training augmentation pipeline.
-
-    ColorJitter parameters are interpreted as *absolute* half-ranges
-    (Albumentations convention) so we convert from the [0, 1] DeiT values:
-    jitter_factor → limit = jitter_factor (Albu adds ± symmetrically).
-    """
+def build_train_transform(cfg: DictConfig) -> T.Compose:
+    """DeiT / Swin training augmentation pipeline using torchvision."""
     aug = cfg.augmentation.train
     data = cfg.data
 
     crop_size: int = int(aug.random_resized_crop)
+    brightness: float = float(aug.color_jitter.brightness)
+    contrast: float = float(aug.color_jitter.contrast)
+    saturation: float = float(aug.color_jitter.saturation)
+    hue: float = float(aug.color_jitter.hue)
+    color_jitter_p: float = float(aug.color_jitter.p)
 
-    transforms: list[A.BasicTransform] = [
-        A.RandomResizedCrop(
-            size=(crop_size, crop_size),
-            scale=(0.08, 1.0),  # standard ImageNet crop range
+    # torchvision ColorJitter uses [0, 1] ranges differently than albumentations
+    # albumentations uses ±limit symmetrically, torchvision uses absolute jitter values
+    # Convert: albumentations brightness=0.4 means ±0.4 range → torchvision brightness=0.4
+    jitter = T.ColorJitter(
+        brightness=brightness,
+        contrast=contrast,
+        saturation=saturation,
+        hue=hue,
+    )
+
+    transforms: list[Callable] = [
+        T.RandomResizedCrop(
+            crop_size,
+            scale=(0.08, 1.0),
             ratio=(3.0 / 4.0, 4.0 / 3.0),
-            interpolation=cv2.INTER_LINEAR,
+            interpolation=T.InterpolationMode.BILINEAR,
         ),
-        A.HorizontalFlip(p=float(aug.horizontal_flip_p)),
-        A.ColorJitter(
-            brightness=float(aug.color_jitter.brightness),
-            contrast=float(aug.color_jitter.contrast),
-            saturation=float(aug.color_jitter.saturation),
-            hue=float(aug.color_jitter.hue),
-            p=float(aug.color_jitter.p),
-        ),
+        T.RandomHorizontalFlip(p=float(aug.horizontal_flip_p)),
+        T.RandomApply([jitter], p=color_jitter_p),
     ]
 
     # Optional Gaussian blur (DeiT-III adds this at p=0.1).
     gaussian_blur_p: float = float(aug.get("gaussian_blur_p", 0.0))
     if gaussian_blur_p > 0.0:
         transforms.append(
-            A.GaussianBlur(
-                blur_limit=(3, 7),
-                sigma_limit=(0.1, 2.0),
+            T.RandomApply(
+                [T.GaussianBlur(kernel_size=7, sigma=(0.1, 2.0))],
                 p=gaussian_blur_p,
             )
         )
@@ -177,18 +257,20 @@ def build_train_transform(cfg: DictConfig) -> A.Compose:
     # Random grayscale (DeiT uses p=0.2).
     grayscale_p: float = float(aug.get("grayscale_p", 0.0))
     if grayscale_p > 0.0:
-        transforms.append(A.ToGray(p=grayscale_p))
+        transforms.append(T.RandomGrayscale(p=grayscale_p))
 
-    transforms += [
-        A.Normalize(mean=list(data.mean), std=list(data.std)),
-        ToTensorV2(),
-    ]
+    transforms.extend(
+        [
+            T.ToTensor(),
+            T.Normalize(mean=list(data.mean), std=list(data.std)),
+        ]
+    )
 
-    return A.Compose(transforms)
+    return T.Compose(transforms)
 
 
-def build_val_transform(cfg: DictConfig) -> A.Compose:
-    """Standard ImageNet validation pipeline.
+def build_val_transform(cfg: DictConfig) -> T.Compose:
+    """Standard ImageNet validation pipeline using torchvision.
 
     Resize the shortest side to ``resize`` (typically 256 for 224-crop
     models), then centre-crop to ``center_crop`` (typically 224).
@@ -200,15 +282,12 @@ def build_val_transform(cfg: DictConfig) -> A.Compose:
     resize_size: int = int(aug.resize)
     center_crop_size: int = int(aug.center_crop)
 
-    return A.Compose(
+    return T.Compose(
         [
-            A.SmallestMaxSize(
-                max_size=resize_size,
-                interpolation=cv2.INTER_LINEAR,
-            ),
-            A.CenterCrop(height=center_crop_size, width=center_crop_size),
-            A.Normalize(mean=list(data.mean), std=list(data.std)),
-            ToTensorV2(),
+            T.Resize(resize_size, interpolation=T.InterpolationMode.BILINEAR),
+            T.CenterCrop(center_crop_size),
+            T.ToTensor(),
+            T.Normalize(mean=list(data.mean), std=list(data.std)),
         ]
     )
 
@@ -218,14 +297,72 @@ def build_val_transform(cfg: DictConfig) -> A.Compose:
 # ---------------------------------------------------------------------------
 
 
+def build_imagenette_loaders(
+    cfg: DictConfig,
+) -> tuple[DataLoader, DataLoader]:
+    """Build train/val loaders from torchvision Imagenette."""
+    root = Path(cfg.data.root)
+    subset_fraction = float(cfg.data.get("subset_fraction", 1.0))
+    subset_seed = int(cfg.data.get("subset_seed", 42))
+    num_workers = int(cfg.data.workers)
+    pin_memory = bool(cfg.data.pin_memory)
+    prefetch_factor: Optional[int] = (
+        int(cfg.data.get("prefetch_factor", 2)) if num_workers > 0 else None
+    )
+    persistent_workers = num_workers > 0
+
+    train_ds = tvdatasets.Imagenette(
+        root=str(root),
+        split="train",
+        transform=build_train_transform(cfg),
+        download=True,
+    )
+    val_ds = tvdatasets.Imagenette(
+        root=str(root),
+        split="val",
+        transform=build_val_transform(cfg),
+        download=False,
+    )
+
+    common_kwargs: dict = dict(
+        num_workers=num_workers,
+        pin_memory=pin_memory,
+        prefetch_factor=prefetch_factor,
+        persistent_workers=persistent_workers,
+    )
+
+    train_loader = DataLoader(
+        train_ds,
+        batch_size=cfg.training.batch_size,
+        shuffle=True,
+        drop_last=True,
+        **common_kwargs,
+    )
+    val_loader = DataLoader(
+        val_ds,
+        batch_size=cfg.training.batch_size * 2,
+        shuffle=False,
+        drop_last=False,
+        **common_kwargs,
+    )
+
+    return train_loader, val_loader
+
+
 def build_classification_loaders(
     cfg: DictConfig,
 ) -> tuple[DataLoader, DataLoader]:
     """Build train and validation DataLoaders.
 
-    Validation batch size is doubled vs. training (no gradients, so we can
-    use larger batches to speed up evaluation) — standard timm practice.
+    Dispatches to imagenette loader if cfg.data.dataset_type == "imagenette",
+    otherwise uses ImageFolderAlbu from local directory.
     """
+    dataset_type = cfg.data.get("dataset_type", "imagefolder")
+
+    if dataset_type == "imagenette":
+        return build_imagenette_loaders(cfg)
+
+    # Default: imagefolder (original behavior)
     root = Path(cfg.data.root)
     subset_fraction = float(cfg.data.get("subset_fraction", 1.0))
     subset_seed = int(cfg.data.get("subset_seed", 42))

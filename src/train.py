@@ -9,9 +9,14 @@ import torch
 from omegaconf import DictConfig, OmegaConf
 
 from dataset.builder import build_classification_loaders
-from models.factory import build_backbone
-from utils.logger import ExperimentLogger, setup_logging
-from utils.optimizer import build_optimizer, build_scheduler, scale_lr
+from models import build_backbone
+from utils import (
+    ExperimentLogger,
+    build_optimizer,
+    build_scheduler,
+    scale_lr,
+    setup_logging,
+)
 
 log = logging.getLogger(__name__)
 

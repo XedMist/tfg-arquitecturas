@@ -4,7 +4,6 @@ import logging
 
 import torch
 import torch.nn as nn
-from module import calculate_drop_path_rates
 from omegaconf import DictConfig
 
 from models.metaformer import BlockConfig, Metaformer, MetaFormerConfig, StageConfig
@@ -13,6 +12,8 @@ from models.mixer import (
     GatedCNNMixerConfig,
     MambaMixerConfig,
 )
+
+from .module import calculate_drop_path_rates
 
 log = logging.getLogger(__name__)
 
@@ -43,12 +44,12 @@ def build_backbone(cfg: DictConfig) -> nn.Module:
 
 def _build_classifier(cfg: DictConfig) -> nn.Module:
 
-    if cfg.model.arch == "gated_cnn-mamba":
+    if cfg.arch == "gated_cnn-mamba":
+        return _build_mamba_backbone(cfg)
+    elif cfg.arch == "gated_cnn-dat":
+        return _build_dat_backbone(cfg)
+    elif cfg.arch == "gated_cnn":
         return _build_gcnn_backbone(cfg)
-    elif cfg.model.arch == "gated_cnn-dat":
-        return _build_dat_backbone(cfg)
-    elif cfg.model.arch == "gated_cnn":
-        return _build_dat_backbone(cfg)
     else:
         raise ValueError(f"Unknown arch {cfg.model.arch}")
 
@@ -124,7 +125,7 @@ def _build_gcnn_backbone(cfg: DictConfig) -> nn.Module:
             StageConfig(
                 in_dim=96,
                 out_dim=192,
-                mixer_configs=[GatedCNNMixerConfig(48)] * depths[0],
+                mixer_configs=[GatedCNNMixerConfig(96)] * depths[0],
                 block_cfgs=[
                     BlockConfig(use_mlp=False, drop_path=dp_rates[i])
                     for i in range(sum(depths[:0]), sum(depths[:1]))
@@ -133,7 +134,7 @@ def _build_gcnn_backbone(cfg: DictConfig) -> nn.Module:
             StageConfig(
                 in_dim=192,
                 out_dim=384,
-                mixer_configs=[GatedCNNMixerConfig(96)] * depths[1],
+                mixer_configs=[GatedCNNMixerConfig(192)] * depths[1],
                 block_cfgs=[
                     BlockConfig(use_mlp=False, drop_path=dp_rates[i])
                     for i in range(sum(depths[:1]), sum(depths[:2]))
@@ -142,7 +143,7 @@ def _build_gcnn_backbone(cfg: DictConfig) -> nn.Module:
             StageConfig(
                 in_dim=384,
                 out_dim=576,
-                mixer_configs=[GatedCNNMixerConfig(192)] * depths[2],
+                mixer_configs=[GatedCNNMixerConfig(384)] * depths[2],
                 block_cfgs=[
                     BlockConfig(use_mlp=False, drop_path=dp_rates[i])
                     for i in range(sum(depths[:2]), sum(depths[:3]))
@@ -151,7 +152,7 @@ def _build_gcnn_backbone(cfg: DictConfig) -> nn.Module:
             StageConfig(
                 in_dim=576,
                 out_dim=576,
-                mixer_configs=[GatedCNNMixerConfig(288)] * depths[3],
+                mixer_configs=[GatedCNNMixerConfig(576)] * depths[3],
                 block_cfgs=[
                     BlockConfig(use_mlp=False, drop_path=dp_rates[i])
                     for i in range(sum(depths[:3]), sum(depths[:4]))
