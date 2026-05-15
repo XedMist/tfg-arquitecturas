@@ -42,16 +42,30 @@ def build_backbone(cfg: DictConfig) -> nn.Module:
     return model
 
 
-def _build_classifier(cfg: DictConfig) -> nn.Module:
 
-    if cfg.arch == "gated_cnn-mamba":
+def _build_classifier(cfg: DictConfig) -> nn.Module:
+    import models.arch as arch_models
+    
+    arch_name = cfg.arch
+    if arch_name == 'dat_attention':
+        return arch_models.build_small_dat(cfg)
+    elif arch_name == 'gated_cnn':
+        return arch_models.build_small_gcnn(cfg)
+    elif arch_name == 'global_attention':
+        return arch_models.build_small_global_attention(cfg)
+    elif arch_name == 'identity':
+        return arch_models.build_small_identity(cfg)
+    elif arch_name == 'mamba':
+        return arch_models.build_small_mamba(cfg)
+    elif arch_name == 'pool':
+        return arch_models.build_small_pool(cfg)
+    elif arch_name == "gated_cnn-mamba":
         return _build_mamba_backbone(cfg)
-    elif cfg.arch == "gated_cnn-dat":
+    elif arch_name == "gated_cnn-dat":
         return _build_dat_backbone(cfg)
-    elif cfg.arch == "gated_cnn":
-        return _build_gcnn_backbone(cfg)
     else:
         raise ValueError(f"Unknown arch {cfg.model.arch}")
+
 
 
 def _build_dat_backbone(cfg: DictConfig) -> nn.Module:

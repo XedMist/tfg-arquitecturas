@@ -1,5 +1,5 @@
 _base_ = [
-    "mmdet::_base_/models/faster_rcnn_r50_fpn.py",
+    "mmdet::_base_/models/faster-rcnn_r50_fpn.py",
     "mmdet::_base_/datasets/coco_detection.py",
     "mmdet::_base_/schedules/schedule_1x.py",
     "mmdet::_base_/default_runtime.py",
@@ -9,6 +9,16 @@ custom_imports = dict(
     imports=["detection.backbones"],
     allow_failed_imports=False,
 )
+
+# 40 clases seleccionadas para el TFG (la mitad de COCO)
+my_classes = (
+    'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat', 'traffic light',
+    'fire hydrant', 'stop sign', 'parking meter', 'bench', 'bird', 'cat', 'dog', 'horse', 'sheep', 'cow',
+    'elephant', 'bear', 'zebra', 'giraffe', 'backpack', 'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee',
+    'skis', 'snowboard', 'sports ball', 'kite', 'baseball bat', 'baseball glove', 'skateboard', 'surfboard', 
+    'tennis racket', 'bottle'
+)
+
 
 model = dict(
     backbone=dict(
@@ -38,14 +48,40 @@ model = dict(
             target_stds=[1.0, 1.0, 1.0, 1.0],
         ),
     ),
+    roi_head=dict(
+        type='StandardRoIHead',
+        bbox_roi_extractor=dict(
+            type='SingleRoIExtractor',
+            roi_layer=dict(type='RoIAlign', output_size=7, sampling_ratio=0),
+            out_channels=256,
+            featmap_strides=[4, 8, 16, 32]),
+        bbox_head=dict(
+            type='Shared2FCBBoxHead',
+            in_channels=256,
+            fc_out_channels=1024,
+            roi_feat_size=7,
+            num_classes=40,
+            bbox_coder=dict(
+                type='DeltaXYWHBBoxCoder',
+                target_means=[0., 0., 0., 0.],
+                target_stds=[0.1, 0.1, 0.2, 0.2]),
+            reg_class_agnostic=False,
+            loss_cls=dict(
+                type='CrossEntropyLoss', use_sigmoid=False, loss_weight=1.0),
+            loss_bbox=dict(type='L1Loss', loss_weight=1.0))),
 )
 
 data_root = "/data/coco/"
 
+auto_scale_lr = dict(enable=False, base_batch_size=2)
+
 train_dataloader = dict(
-    batch_size=2,  # por GPU — ajusta según VRAM disponible
-    num_workers=4,
+    batch_size=8,
+    num_workers=8,
     dataset=dict(
+        type="CocoDataset",
+        metainfo=dict(classes=my_classes),
+        filter_cfg=dict(filter_empty_gt=True, min_size=32),
         data_root=data_root,
         ann_file="annotations/instances_train2017.json",
         data_prefix=dict(img="train2017/"),
@@ -56,6 +92,8 @@ val_dataloader = dict(
     batch_size=1,
     num_workers=4,
     dataset=dict(
+        type="CocoDataset",
+        metainfo=dict(classes=my_classes),
         data_root=data_root,
         ann_file="annotations/instances_val2017.json",
         data_prefix=dict(img="val2017/"),
@@ -75,6 +113,7 @@ test_evaluator = val_evaluator
 optim_wrapper = dict(
     type="OptimWrapper",
     optimizer=dict(
+        _delete_=True,
         type="AdamW",
         lr=1e-4,
         weight_decay=0.05,
@@ -170,3 +209,4 @@ visualizer = dict(
     vis_backends=vis_backends,
     name="visualizer",
 )
+

@@ -152,10 +152,11 @@ class ImagenetteDataset(Dataset):
         self.subset_seed = subset_seed
         self.classes: list[str] = []
 
+        _check_and_download_imagenette(self.root)
         self._dataset = tvdatasets.Imagenette(
             root=str(root),
             split=split,
-            download=True,
+            download=False,
         )
         self._load_samples()
 
@@ -259,6 +260,15 @@ def build_train_transform(cfg: DictConfig) -> T.Compose:
     if grayscale_p > 0.0:
         transforms.append(T.RandomGrayscale(p=grayscale_p))
 
+    # ── RandAugment / AutoAugment (PIL-level, before ToTensor) ────────────────
+    # Policy string e.g. "rand-m9-mstd0.5-inc1" (timm format) or
+    # "randaugment" / "trivialaugment" (torchvision fallback).
+    auto_augment_policy: str = str(aug.get("auto_augment", "") or "")
+    if auto_augment_policy:
+        aa_transform = _build_auto_augment(auto_augment_policy, crop_size)
+        if aa_transform is not None:
+            transforms.append(aa_transform)
+
     transforms.extend(
         [
             T.ToTensor(),
@@ -266,7 +276,50 @@ def build_train_transform(cfg: DictConfig) -> T.Compose:
         ]
     )
 
+    # ── Random Erasing (tensor-level, after Normalize) ────────────────────
+    re_prob: float = float(aug.get("re_prob", 0.0))
+    if re_prob > 0.0:
+        transforms.append(
+            T.RandomErasing(
+                p=re_prob,
+                scale=(0.02, 0.33),
+                ratio=(0.3, 3.3),
+                value="random",  # random noise patch (timm default)
+            )
+        )
+
     return T.Compose(transforms)
+
+
+def _build_auto_augment(policy: str, img_size: int):
+    """Build a RandAugment / AutoAugment transform from a policy string.
+
+    Tries timm first (supports the full "rand-m9-mstd0.5-inc1" syntax).
+    Falls back to torchvision equivalents for simple policy names.
+    Returns None if the policy string is unrecognised.
+    """
+    policy_lower = policy.lower()
+    try:
+        from timm.data.auto_augment import rand_augment_transform  # type: ignore
+
+        aa_params = {"translate_const": int(img_size * 0.45), "img_mean": (128, 128, 128)}
+        return rand_augment_transform(policy, aa_params)
+    except (ImportError, Exception):
+        pass
+
+    # timm not available or policy unrecognised — fall back to torchvision
+    if "trivialaugment" in policy_lower:
+        return T.TrivialAugmentWide()
+    if "randaugment" in policy_lower or policy_lower.startswith("rand"):
+        return T.RandAugment(num_ops=2, magnitude=9)
+    if "autoaugment" in policy_lower:
+        return T.AutoAugment(T.AutoAugmentPolicy.IMAGENET)
+
+    import logging
+    logging.getLogger(__name__).warning(
+        "auto_augment policy '%s' unrecognised and timm unavailable — skipping.", policy
+    )
+    return None
 
 
 def build_val_transform(cfg: DictConfig) -> T.Compose:
@@ -297,6 +350,21 @@ def build_val_transform(cfg: DictConfig) -> T.Compose:
 # ---------------------------------------------------------------------------
 
 
+def _check_and_download_imagenette(root: Path) -> None:
+    """Check if Imagenette dataset exists, download if missing."""
+    # Check if train split exists (torchvision stores data in root/{split}/{class}/)
+    train_path = root / "train"
+    val_path = root / "val"
+
+    if not train_path.is_dir() or not val_path.is_dir():
+        # Dataset not found - download it first
+        tvdatasets.Imagenette(root=str(root), split="train", download=True)
+        # The val split will also be downloaded together
+    else:
+        # Data already exists - ensure no accidental re-download
+        tvdatasets.Imagenette(root=str(root), split="train", download=False)
+
+
 def build_imagenette_loaders(
     cfg: DictConfig,
 ) -> tuple[DataLoader, DataLoader]:
@@ -311,11 +379,14 @@ def build_imagenette_loaders(
     )
     persistent_workers = num_workers > 0
 
+    # Check if dataset exists, download if needed
+    _check_and_download_imagenette(root)
+
     train_ds = tvdatasets.Imagenette(
         root=str(root),
         split="train",
         transform=build_train_transform(cfg),
-        download=True,
+        download=False,
     )
     val_ds = tvdatasets.Imagenette(
         root=str(root),

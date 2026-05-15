@@ -88,19 +88,37 @@ def run_eval(
     from mmengine.runner import Runner  # noqa: F401
 
     log.info(f"Cargando config: {config_path}")
-    cfg = Config.fromfile(str(config_path))
 
-    # Asegurar que el backbone custom está registrado
+    # Asegurar que el backbone custom está registrado ANTES de cargar la config
     _src = Path(__file__).resolve().parents[2]
     if str(_src) not in sys.path:
         sys.path.insert(0, str(_src))
     import detection  # noqa: F401 — registra MetaFormerBackbone
 
+    cfg = Config.fromfile(str(config_path))
+
+    # Anular el preentrenamiento del backbone, ya que vamos a cargar el detector completo
+    # Esto evita el error de "checkpoint file not found" al inicializar la arquitectura
+    if hasattr(cfg, "model") and "backbone" in cfg.model:
+        cfg.model.backbone.pretrained = None
+
     cfg.load_from = str(checkpoint_path)
     cfg.work_dir = str(output_path.parent)
 
     # Forzar evaluación (no entrenamiento)
-    cfg.test_evaluator = dict(type="CocoMetric", metric="bbox", classwise=True)
+    # Utilizamos el ann_file definido en la config para que no falle CocoMetric
+    if (
+        hasattr(cfg, "val_evaluator")
+        and isinstance(cfg.val_evaluator, dict)
+        and "ann_file" in cfg.val_evaluator
+    ):
+        ann_file = cfg.val_evaluator["ann_file"]
+    else:
+        ann_file = None
+
+    cfg.test_evaluator = dict(
+        type="CocoMetric", metric="bbox", classwise=True, ann_file=ann_file
+    )
 
     log.info("Iniciando evaluación COCO...")
     runner = Runner.from_cfg(cfg)
