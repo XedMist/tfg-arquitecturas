@@ -34,7 +34,7 @@ def build_small_mamba(cfg: DictConfig) -> nn.Module:
             ),
             StageConfig(
                 in_dim=192,
-                out_dim=384,
+                out_dim=288,
                 mixer_configs=[MambaMixerConfig(192)] * depths[2],
                 block_cfgs=[
                     BlockConfig(use_mlp=True, drop_path=dp_rates[i])
@@ -42,9 +42,9 @@ def build_small_mamba(cfg: DictConfig) -> nn.Module:
                 ],
             ),
             StageConfig(
-                in_dim=384,
-                out_dim=384,
-                mixer_configs=[MambaMixerConfig(384)] * depths[3],
+                in_dim=288,
+                out_dim=288,
+                mixer_configs=[MambaMixerConfig(288)] * depths[3],
                 block_cfgs=[
                     BlockConfig(use_mlp=True, drop_path=dp_rates[i])
                     for i in range(sum(depths[:3]), sum(depths[:4]))

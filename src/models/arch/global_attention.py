@@ -36,7 +36,7 @@ def build_small_global_attention(cfg: DictConfig) -> nn.Module:
             ),
             StageConfig(
                 in_dim=192,
-                out_dim=384,
+                out_dim=288,
                 mixer_configs=[GlobalAttentionMixerConfig(num_heads=32, d_model=192)]
                 * depths[2],
                 block_cfgs=[
@@ -45,9 +45,9 @@ def build_small_global_attention(cfg: DictConfig) -> nn.Module:
                 ],
             ),
             StageConfig(
-                in_dim=384,
-                out_dim=384,
-                mixer_configs=[GlobalAttentionMixerConfig(num_heads=32, d_model=384)]
+                in_dim=288,
+                out_dim=288,
+                mixer_configs=[GlobalAttentionMixerConfig(num_heads=32, d_model=288)]
                 * depths[3],
                 block_cfgs=[
                     BlockConfig(use_mlp=True, drop_path=dp_rates[i])

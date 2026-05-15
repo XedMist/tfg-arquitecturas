@@ -36,7 +36,7 @@ def build_small_dat(cfg: DictConfig) -> nn.Module:
             ),
             StageConfig(
                 in_dim=192,
-                out_dim=384,
+                out_dim=288,
                 mixer_configs=[
                     DeformableAttentionMixerConfig(num_heads=16, d_model=192)
                 ]
@@ -47,10 +47,10 @@ def build_small_dat(cfg: DictConfig) -> nn.Module:
                 ],
             ),
             StageConfig(
-                in_dim=384,
-                out_dim=384,
+                in_dim=288,
+                out_dim=288,
                 mixer_configs=[
-                    DeformableAttentionMixerConfig(num_heads=16, d_model=384)
+                    DeformableAttentionMixerConfig(num_heads=16, d_model=288)
                 ]
                 * depths[3],
                 block_cfgs=[

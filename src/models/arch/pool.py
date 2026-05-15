@@ -34,7 +34,7 @@ def build_small_pool(cfg: DictConfig) -> nn.Module:
             ),
             StageConfig(
                 in_dim=192,
-                out_dim=384,
+                out_dim=288,
                 mixer_configs=[PoolMixerConfig(pool_size=3)] * depths[2],
                 block_cfgs=[
                     BlockConfig(use_mlp=True, drop_path=dp_rates[i])
@@ -42,8 +42,8 @@ def build_small_pool(cfg: DictConfig) -> nn.Module:
                 ],
             ),
             StageConfig(
-                in_dim=384,
-                out_dim=384,
+                in_dim=288,
+                out_dim=288,
                 mixer_configs=[PoolMixerConfig(pool_size=3)] * depths[3],
                 block_cfgs=[
                     BlockConfig(use_mlp=True, drop_path=dp_rates[i])
