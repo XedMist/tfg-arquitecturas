@@ -17,7 +17,7 @@ def build_small_pool(cfg: DictConfig) -> nn.Module:
             StageConfig(
                 in_dim=48,
                 out_dim=96,
-                mixer_configs=[PoolMixerConfig(pool_size=3)] * depths[0],
+                mixer_configs=[PoolMixerConfig(48, pool_size=3)] * depths[0],
                 block_cfgs=[
                     BlockConfig(use_mlp=True, drop_path=dp_rates[i])
                     for i in range(sum(depths[:0]), sum(depths[:1]))
@@ -26,7 +26,7 @@ def build_small_pool(cfg: DictConfig) -> nn.Module:
             StageConfig(
                 in_dim=96,
                 out_dim=192,
-                mixer_configs=[PoolMixerConfig(pool_size=3)] * depths[1],
+                mixer_configs=[PoolMixerConfig(96, pool_size=3)] * depths[1],
                 block_cfgs=[
                     BlockConfig(use_mlp=True, drop_path=dp_rates[i])
                     for i in range(sum(depths[:1]), sum(depths[:2]))
@@ -35,7 +35,7 @@ def build_small_pool(cfg: DictConfig) -> nn.Module:
             StageConfig(
                 in_dim=192,
                 out_dim=288,
-                mixer_configs=[PoolMixerConfig(pool_size=3)] * depths[2],
+                mixer_configs=[PoolMixerConfig(192, pool_size=3)] * depths[2],
                 block_cfgs=[
                     BlockConfig(use_mlp=True, drop_path=dp_rates[i])
                     for i in range(sum(depths[:2]), sum(depths[:3]))
@@ -44,7 +44,7 @@ def build_small_pool(cfg: DictConfig) -> nn.Module:
             StageConfig(
                 in_dim=288,
                 out_dim=288,
-                mixer_configs=[PoolMixerConfig(pool_size=3)] * depths[3],
+                mixer_configs=[PoolMixerConfig(288, pool_size=3)] * depths[3],
                 block_cfgs=[
                     BlockConfig(use_mlp=True, drop_path=dp_rates[i])
                     for i in range(sum(depths[:3]), sum(depths[:4]))

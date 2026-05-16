@@ -152,11 +152,13 @@ class ImagenetteDataset(Dataset):
         self.subset_seed = subset_seed
         self.classes: list[str] = []
 
-        _check_and_download_imagenette(self.root)
+        imagenette2_path = Path(root) / "imagenette2"
+        download = not imagenette2_path.exists()
+
         self._dataset = tvdatasets.Imagenette(
             root=str(root),
             split=split,
-            download=False,
+            download=download,
         )
         self._load_samples()
 
@@ -350,21 +352,6 @@ def build_val_transform(cfg: DictConfig) -> T.Compose:
 # ---------------------------------------------------------------------------
 
 
-def _check_and_download_imagenette(root: Path) -> None:
-    """Check if Imagenette dataset exists, download if missing."""
-    # Check if train split exists (torchvision stores data in root/{split}/{class}/)
-    train_path = root / "train"
-    val_path = root / "val"
-
-    if not train_path.is_dir() or not val_path.is_dir():
-        # Dataset not found - download it first
-        tvdatasets.Imagenette(root=str(root), split="train", download=True)
-        # The val split will also be downloaded together
-    else:
-        # Data already exists - ensure no accidental re-download
-        tvdatasets.Imagenette(root=str(root), split="train", download=False)
-
-
 def build_imagenette_loaders(
     cfg: DictConfig,
 ) -> tuple[DataLoader, DataLoader]:
@@ -379,14 +366,14 @@ def build_imagenette_loaders(
     )
     persistent_workers = num_workers > 0
 
-    # Check if dataset exists, download if needed
-    _check_and_download_imagenette(root)
+    imagenette2_path = Path(root) / "imagenette2"
+    download = not imagenette2_path.exists()
 
     train_ds = tvdatasets.Imagenette(
         root=str(root),
         split="train",
         transform=build_train_transform(cfg),
-        download=False,
+        download=download,
     )
     val_ds = tvdatasets.Imagenette(
         root=str(root),
