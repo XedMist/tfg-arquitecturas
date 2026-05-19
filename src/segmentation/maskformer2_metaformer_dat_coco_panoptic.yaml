@@ -1,41 +1,28 @@
-# maskformer2_metaformer_tiny_coco_panoptic.yaml
-# -----------------------------------------------
-# Configuración de Mask2Former para segmentación panóptica en COCO
-# usando MetaformerBackbone como extractor de características.
-#
-# Basado en:
-#   configs/coco/panoptic-segmentation/maskformer2_swin_tiny_bs16_50ep.yaml
-# Solo cambia la sección MODEL.BACKBONE y MODEL.METAFORMER.
-
 _BASE_: "/opt/Mask2Former/configs/coco/panoptic-segmentation/Base-COCO-PanopticSegmentation.yaml"
 
 MODEL:
   META_ARCHITECTURE: "MaskFormer"
   BACKBONE:
-    NAME: "MetaformerBackbone"        # <-- tu backbone registrado
-  PIXEL_MEAN: [123.675, 116.280, 103.530]  # media de ImageNet (no tocar)
-  PIXEL_STD:  [58.395,  57.120,  57.375]  # std de ImageNet (no tocar)
+    NAME: "MetaformerBackbone"
+  PIXEL_MEAN: [123.675, 116.280, 103.530]
+  PIXEL_STD:  [58.395,  57.120,  57.375]
 
-  # Parámetros propios del backbone
   METAFORMER:
-    WEIGHTS: "checkpoints/backbone_gcnn_2/last.ckpt"  # Checkpoint de la config classification_gcnn_2
+    ARCH_NAME: "gated_cnn-dat"
+    WEIGHTS: ""
     OUT_FEATURES: ["res2", "res3", "res4", "res5"]
-    # Canales de salida del Gated CNN (_build_gcnn_backbone)
-    OUT_CHANNELS: [96, 192, 384, 576]
-    # stride acumulado: stem=4, cada Downsample dobla
+    OUT_CHANNELS: [96, 192, 320, 512]
     OUT_STRIDES:  [4, 8, 16, 32]
 
-  # Pixel Decoder (MSDeformAttn) — no tocar salvo que cambies la FPN
   SEM_SEG_HEAD:
     NAME: "MaskFormerHead"
     IGNORE_VALUE: 255
-    NUM_CLASSES: 133          # COCO panoptic: 80 things + 53 stuff
+    NUM_CLASSES: 133
     LOSS_WEIGHT: 1.0
     CONVS_DIM: 256
     MASK_DIM: 256
     NORM: "GN"
     IN_FEATURES: ["res2", "res3", "res4", "res5"]
-    # Pixel decoder
     PIXEL_DECODER_NAME: "MSDeformAttnPixelDecoder"
     DEFORMABLE_TRANSFORMER_ENCODER_IN_FEATURES: ["res3", "res4", "res5"]
     DEFORMABLE_TRANSFORMER_ENCODER_N_POINTS: 4
@@ -74,9 +61,9 @@ SOLVER:
   WEIGHT_DECAY: 0.05
   WEIGHT_DECAY_NORM: 0.0
   OPTIMIZER: "ADAMW"
-  BACKBONE_LR_MULTIPLIER: 0.1    # backbone aprende 10x más lento
+  BACKBONE_LR_MULTIPLIER: 0.1
   LR_SCHEDULER_NAME: "WarmupPolyLR"
-  MAX_ITER: 80000               # ~90 épocas con batch 16
+  MAX_ITER: 80000
   WARMUP_FACTOR: 1.0
   WARMUP_ITERS: 10
   WARMUP_METHOD: "linear"
@@ -91,7 +78,7 @@ INPUT:
   MIN_SCALE: 0.1
   MAX_SCALE: 2.0
   FORMAT: "RGB"
-  DATASET_MAPPER_NAME: "coco_panoptic_lsj"   # Large Scale Jitter
+  DATASET_MAPPER_NAME: "coco_panoptic_lsj"
 
 DATALOADER:
   FILTER_EMPTY_ANNOTATIONS: true
@@ -104,4 +91,4 @@ DATASETS:
 TEST:
   EVAL_PERIOD: 5000
 
-OUTPUT_DIR: "./output/metaformer_tiny_coco_panoptic"
+OUTPUT_DIR: "./output/metaformer_dat_coco_panoptic"

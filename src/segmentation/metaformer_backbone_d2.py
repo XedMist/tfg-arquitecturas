@@ -11,6 +11,7 @@ from models.metaformer import Metaformer, MetaFormerConfig
 
 def add_metaformer_config(cfg: CN) -> None:
     cfg.MODEL.METAFORMER = CN()
+    cfg.MODEL.METAFORMER.ARCH_NAME = "gated_cnn"
     cfg.MODEL.METAFORMER.WEIGHTS = ""
     cfg.MODEL.METAFORMER.OUT_FEATURES = ["res2", "res3", "res4", "res5"]
     cfg.MODEL.METAFORMER.OUT_CHANNELS = [96, 192, 384, 768]
@@ -23,10 +24,33 @@ def add_metaformer_config(cfg: CN) -> None:
 # ---------------------------------------------------------------------------
 @BACKBONE_REGISTRY.register()
 class MetaformerBackbone(Backbone):
-    def __init__(self, metaformer: Metaformer, cfg: CN):
+    def __init__(self, cfg: CN, input_shape: ShapeSpec):
         super().__init__()
 
+        from omegaconf import OmegaConf
+        from models.factory import (
+            _build_gcnn_backbone,
+            _build_dat_backbone,
+            _build_mamba_backbone,
+        )
+
         mf_cfg = cfg.MODEL.METAFORMER
+        arch_name = getattr(mf_cfg, "ARCH_NAME", "gated_cnn")
+
+        # Creamos la configuración del modelo alineada con classification_gcnn_2.yaml
+        model_cfg = OmegaConf.create({"num_classes": 1000, "drop_path_rate": 0.1})
+
+        if arch_name == "gated_cnn":
+            metaformer = _build_gcnn_backbone(model_cfg)
+        elif arch_name == "gated_cnn-dat":
+            metaformer = _build_dat_backbone(model_cfg)
+        elif arch_name == "gated_cnn-mamba":
+            metaformer = _build_mamba_backbone(model_cfg)
+        else:
+            raise ValueError(
+                f"Arch name {arch_name} no soportado para MetaformerBackbone"
+            )
+
         self._out_features: List[str] = mf_cfg.OUT_FEATURES
         self._out_channels: List[int] = mf_cfg.OUT_CHANNELS
         self._out_strides: List[int] = mf_cfg.OUT_STRIDES
@@ -111,31 +135,3 @@ class MetaformerBackbone(Backbone):
                 self._out_strides,
             )
         }
-
-
-# ---------------------------------------------------------------------------
-# Función de construcción — punto de entrada desde la config de Detectron2
-# ---------------------------------------------------------------------------
-def build_metaformer_backbone(cfg: CN, input_shape: ShapeSpec) -> MetaformerBackbone:
-    """
-    Esta función es la que Detectron2 llama internamente cuando ve
-    MODEL.BACKBONE.NAME = "MetaformerBackbone".
-
-    Construye el modelo Gated CNN (gcnn_2) basándose en la configuración de
-    classification_gcnn_2.yaml y lo envuelve para Detectron2.
-    """
-    from omegaconf import OmegaConf
-    from models.factory import _build_gcnn_backbone
-
-    # Creamos la configuración del modelo alineada con classification_gcnn_2.yaml
-    model_cfg = OmegaConf.create({"num_classes": 1000, "drop_path_rate": 0.1})
-
-    # Construimos el backbone (gated_cnn)
-    metaformer = _build_gcnn_backbone(model_cfg)
-
-    return MetaformerBackbone(metaformer, cfg)
-
-
-# Registramos build_metaformer_backbone como la función que construye
-# el backbone cuando Detectron2 busca "MetaformerBackbone"
-BACKBONE_REGISTRY.register()(build_metaformer_backbone)

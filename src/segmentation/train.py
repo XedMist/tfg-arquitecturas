@@ -182,6 +182,14 @@ class MetaformerTrainer(DefaultTrainer):
         optimizer = maybe_add_gradient_clipping(cfg, optimizer)
         return optimizer
 
+    @classmethod
+    def build_lr_scheduler(cls, cfg, optimizer):
+        """
+        Usa el LR scheduler de DeepLab (que soporta WarmupPolyLR)
+        en lugar del estándar de Detectron2.
+        """
+        return build_lr_scheduler(cfg, optimizer)
+
     # ------------------------------------------------------------------
     # Test Time Augmentation (opcional, mejora ~1-2pp en métricas)
     # ------------------------------------------------------------------
