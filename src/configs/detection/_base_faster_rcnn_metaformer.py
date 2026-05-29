@@ -77,6 +77,8 @@ auto_scale_lr = dict(enable=False, base_batch_size=2)
 train_dataloader = dict(
     batch_size=8,
     num_workers=8,
+    persistent_workers=True,
+    pin_memory=True,
     dataset=dict(
         type="CocoDataset",
         metainfo=dict(classes=my_classes),
@@ -90,6 +92,8 @@ train_dataloader = dict(
 val_dataloader = dict(
     batch_size=1,
     num_workers=4,
+    persistent_workers=True,
+    pin_memory=True,
     dataset=dict(
         type="CocoDataset",
         metainfo=dict(classes=my_classes),
@@ -111,7 +115,8 @@ val_evaluator = dict(
 test_evaluator = val_evaluator
 
 optim_wrapper = dict(
-    type="OptimWrapper",
+    type="AmpOptimWrapper",
+    loss_scale="dynamic",
     optimizer=dict(
         _delete_=True,
         type="AdamW",
@@ -144,17 +149,12 @@ train_pipeline = [
                 dict(
                     type="RandomChoiceResize",
                     scales=[
-                        (480, 1333),
-                        (512, 1333),
-                        (544, 1333),
-                        (576, 1333),
-                        (608, 1333),
-                        (640, 1333),
-                        (672, 1333),
-                        (704, 1333),
-                        (736, 1333),
-                        (768, 1333),
-                        (800, 1333),
+                        (480, 1024),
+                        (544, 1024),
+                        (608, 1024),
+                        (672, 1024),
+                        (736, 1024),
+                        (800, 1024),
                     ],
                     keep_ratio=True,
                 )
@@ -166,7 +166,7 @@ train_pipeline = [
 
 test_pipeline = [
     dict(type="LoadImageFromFile"),
-    dict(type="Resize", scale=(800, 1333), keep_ratio=True),
+    dict(type="Resize", scale=(800, 1024), keep_ratio=True),
     dict(type="LoadAnnotations", with_bbox=True),
     dict(
         type="PackDetInputs",
@@ -174,14 +174,15 @@ test_pipeline = [
     ),
 ]
 
-val_dataloader = dict(dataset=dict(pipeline=test_pipeline))
-test_dataloader = dict(dataset=dict(pipeline=test_pipeline))
+train_dataloader['dataset']['pipeline'] = train_pipeline
+val_dataloader['dataset']['pipeline'] = test_pipeline
+test_dataloader = val_dataloader
 
 default_hooks = dict(
     checkpoint=dict(
         type="CheckpointHook",
-        interval=1,
-        max_keep_ckpts=3,
+        interval=4,
+        max_keep_ckpts=2,
         save_best="coco/bbox_mAP",
         rule="greater",
     ),

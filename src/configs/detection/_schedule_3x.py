@@ -2,7 +2,7 @@
 # Drop LR en epochs 27 y 33 (proporcional a 1x: 8→27, 11→33)
 # Más augmentación multi-scale para aprovechar más épocas
 
-train_cfg = dict(type="EpochBasedTrainLoop", max_epochs=36, val_interval=1)
+train_cfg = dict(type="EpochBasedTrainLoop", max_epochs=36, val_interval=6)
 
 param_scheduler = [
     dict(
@@ -34,9 +34,8 @@ train_pipeline = [
                 dict(
                     type="RandomChoiceResize",
                     scales=[
-                        (480, 1333), (512, 1333), (544, 1333), (576, 1333),
-                        (608, 1333), (640, 1333), (672, 1333), (704, 1333),
-                        (736, 1333), (768, 1333), (800, 1333),
+                        (480, 1024), (544, 1024), (608, 1024),
+                        (672, 1024), (736, 1024), (800, 1024),
                     ],
                     keep_ratio=True,
                 )
@@ -44,7 +43,7 @@ train_pipeline = [
             [
                 dict(
                     type="RandomChoiceResize",
-                    scales=[(400, 1333), (500, 1333), (600, 1333)],
+                    scales=[(400, 1024), (500, 1024), (600, 1024)],
                     keep_ratio=True,
                 ),
                 dict(
@@ -56,9 +55,8 @@ train_pipeline = [
                 dict(
                     type="RandomChoiceResize",
                     scales=[
-                        (480, 1333), (512, 1333), (544, 1333), (576, 1333),
-                        (608, 1333), (640, 1333), (672, 1333), (704, 1333),
-                        (736, 1333), (768, 1333), (800, 1333),
+                        (480, 1024), (544, 1024), (608, 1024),
+                        (672, 1024), (736, 1024), (800, 1024),
                     ],
                     keep_ratio=True,
                 ),

@@ -1,6 +1,6 @@
 # Schedule 1x — 12 épocas
 
-train_cfg = dict(type="EpochBasedTrainLoop", max_epochs=12, val_interval=1)
+train_cfg = dict(type="EpochBasedTrainLoop", max_epochs=12, val_interval=3)
 
 param_scheduler = [
     dict(

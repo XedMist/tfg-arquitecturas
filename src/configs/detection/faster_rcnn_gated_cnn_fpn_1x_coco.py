@@ -18,7 +18,7 @@ model = dict(
         type="MetaFormerBackbone",
         arch="gated_cnn",
         out_indices=(0, 1, 2, 3),
-        frozen_stages=1,          # congelar stem para fine-tune
+        frozen_stages=2,          # congelar stem + stage0 para fine-tune
         pretrained="checkpoints/detection/gated_cnn.pth",           # rellenar con path tras convert_checkpoint.py
         drop_path_rate=0.1,
     ),

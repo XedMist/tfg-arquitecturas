@@ -1,7 +1,7 @@
 # Schedule 2x — 24 épocas
 # Drop LR en epochs 16 y 22 (proporcional a 1x: 8→16, 11→22)
 
-train_cfg = dict(type="EpochBasedTrainLoop", max_epochs=24, val_interval=1)
+train_cfg = dict(type="EpochBasedTrainLoop", max_epochs=24, val_interval=4)
 
 param_scheduler = [
     dict(

@@ -16,7 +16,7 @@ model = dict(
         type="MetaFormerBackbone",
         arch="gated_cnn_mamba",
         out_indices=(0, 1, 2, 3),
-        frozen_stages=1,
+        frozen_stages=2,
         pretrained="checkpoints/detection/gated_cnn_mamba_backbone.pth",  # path tras convert_checkpoint.py
         drop_path_rate=0.1,
     ),

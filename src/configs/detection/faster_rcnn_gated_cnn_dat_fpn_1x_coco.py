@@ -17,7 +17,7 @@ model = dict(
         type="MetaFormerBackbone",
         arch="gated_cnn_dat",
         out_indices=(0, 1, 2, 3),
-        frozen_stages=1,
+        frozen_stages=2,
         pretrained="checkpoints/detection/gated_cnn_dat_backbone.pth",
         drop_path_rate=0.1,
     ),
