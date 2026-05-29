@@ -48,7 +48,7 @@ MODEL:
     ENFORCE_INPUT_PROJ: false
     TEST:
       SEMANTIC_ON: false
-      INSTANCE_ON: false
+      INSTANCE_ON: true
       PANOPTIC_ON: true
       OVERLAP_THRESHOLD: 0.8
       OBJECT_MASK_THRESHOLD: 0.8
@@ -92,3 +92,4 @@ TEST:
   EVAL_PERIOD: 5000
 
 OUTPUT_DIR: "./output/metaformer_mamba_coco_panoptic"
+

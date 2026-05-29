@@ -84,10 +84,10 @@ SOLVER:
     ENABLED: true
     CLIP_TYPE: "norm"
     CLIP_VALUE: 0.01
-  CHECKPOINT_PERIOD: 5000
+  CHECKPOINT_PERIOD: 2500
 
 INPUT:
-  IMAGE_SIZE: 1024
+  IMAGE_SIZE: 800
   MIN_SCALE: 0.1
   MAX_SCALE: 2.0
   FORMAT: "RGB"
@@ -102,6 +102,6 @@ DATASETS:
   TEST:  ("coco_2017_val_panoptic",)
 
 TEST:
-  EVAL_PERIOD: 5000
+  EVAL_PERIOD: 2500
 
 OUTPUT_DIR: "./output/metaformer_tiny_coco_panoptic"

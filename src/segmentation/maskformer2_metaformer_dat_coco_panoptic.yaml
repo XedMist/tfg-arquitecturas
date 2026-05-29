@@ -48,7 +48,7 @@ MODEL:
     ENFORCE_INPUT_PROJ: false
     TEST:
       SEMANTIC_ON: false
-      INSTANCE_ON: false
+      INSTANCE_ON: true
       PANOPTIC_ON: true
       OVERLAP_THRESHOLD: 0.8
       OBJECT_MASK_THRESHOLD: 0.8
@@ -74,7 +74,7 @@ SOLVER:
   CHECKPOINT_PERIOD: 5000
 
 INPUT:
-  IMAGE_SIZE: 1024
+  IMAGE_SIZE: 800
   MIN_SCALE: 0.1
   MAX_SCALE: 2.0
   FORMAT: "RGB"
@@ -92,3 +92,4 @@ TEST:
   EVAL_PERIOD: 5000
 
 OUTPUT_DIR: "./output/metaformer_dat_coco_panoptic"
+

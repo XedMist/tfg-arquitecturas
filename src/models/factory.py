@@ -179,7 +179,7 @@ def _build_gcnn_backbone(cfg: DictConfig) -> nn.Module:
 
 def _build_mamba_backbone(cfg: DictConfig) -> nn.Module:
     drop_path_rate = cfg.get("drop_path_rate", 0.0)
-    depths = [3, 3, 9, 3]
+    depths = [3, 3, 13, 3]
     dp_rates = calculate_drop_path_rates(drop_path_rate, depths)
 
     config = MetaFormerConfig(
