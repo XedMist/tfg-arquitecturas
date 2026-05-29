@@ -42,22 +42,21 @@ def build_backbone(cfg: DictConfig) -> nn.Module:
     return model
 
 
-
 def _build_classifier(cfg: DictConfig) -> nn.Module:
     import models.arch as arch_models
-    
+
     arch_name = cfg.arch
-    if arch_name == 'dat_attention':
+    if arch_name == "dat_attention":
         return arch_models.build_small_dat(cfg)
-    elif arch_name == 'gated_cnn':
+    elif arch_name == "gated_cnn":
         return arch_models.build_small_gcnn(cfg)
-    elif arch_name == 'global_attention':
+    elif arch_name == "global_attention":
         return arch_models.build_small_global_attention(cfg)
-    elif arch_name == 'identity':
+    elif arch_name == "identity":
         return arch_models.build_small_identity(cfg)
-    elif arch_name == 'mamba':
+    elif arch_name == "mamba":
         return arch_models.build_small_mamba(cfg)
-    elif arch_name == 'pool':
+    elif arch_name == "pool":
         return arch_models.build_small_pool(cfg)
     elif arch_name == "gated_cnn-mamba":
         return _build_mamba_backbone(cfg)
@@ -65,7 +64,6 @@ def _build_classifier(cfg: DictConfig) -> nn.Module:
         return _build_dat_backbone(cfg)
     else:
         raise ValueError(f"Unknown arch {cfg.model.arch}")
-
 
 
 def _build_dat_backbone(cfg: DictConfig) -> nn.Module:
@@ -210,7 +208,7 @@ def _build_mamba_backbone(cfg: DictConfig) -> nn.Module:
                 out_dim=576,
                 mixer_configs=[MambaMixerConfig(384)] * depths[2],
                 block_cfgs=[
-                    BlockConfig(use_mlp=True, drop_path=dp_rates[i])
+                    BlockConfig(use_mlp=False, drop_path=dp_rates[i])
                     for i in range(sum(depths[:2]), sum(depths[:3]))
                 ],
             ),
@@ -219,7 +217,7 @@ def _build_mamba_backbone(cfg: DictConfig) -> nn.Module:
                 out_dim=576,
                 mixer_configs=[MambaMixerConfig(576)] * depths[3],
                 block_cfgs=[
-                    BlockConfig(use_mlp=True, drop_path=dp_rates[i])
+                    BlockConfig(use_mlp=False, drop_path=dp_rates[i])
                     for i in range(sum(depths[:3]), sum(depths[:4]))
                 ],
             ),

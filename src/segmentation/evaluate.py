@@ -100,7 +100,7 @@ def build_evaluators(cfg, dataset_name: str, output_folder: str):
 
     evaluators.append(COCOEvaluator(dataset_name, output_dir=output_folder))
 
-    if hasattr(meta, "stuff_classes"):
+    if hasattr(meta, "stuff_classes") and "with_sem_seg" in dataset_name:
         evaluators.append(
             SemSegEvaluator(dataset_name, distributed=False, output_dir=output_folder)
         )

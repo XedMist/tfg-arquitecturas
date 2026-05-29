@@ -94,6 +94,7 @@ val_dataloader = dict(
     dataset=dict(
         type="CocoDataset",
         metainfo=dict(classes=my_classes),
+        filter_cfg=dict(filter_empty_gt=True, min_size=32),
         data_root=data_root,
         ann_file="annotations/instances_val2017.json",
         data_prefix=dict(img="val2017/"),
@@ -191,6 +192,9 @@ test_pipeline = [
         meta_keys=("img_id", "img_path", "ori_shape", "img_shape", "scale_factor"),
     ),
 ]
+
+val_dataloader = dict(dataset=dict(pipeline=test_pipeline))
+test_dataloader = dict(dataset=dict(pipeline=test_pipeline))
 
 default_hooks = dict(
     checkpoint=dict(
