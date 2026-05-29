@@ -7,7 +7,7 @@
 #   - Solo varía el backbone
 # ─────────────────────────────────────────────────────────────────────────────
 
-_base_ = ["./_base_faster_rcnn_metaformer.py"]
+_base_ = ["./_base_faster_rcnn_metaformer.py", "./_schedule_1x.py"]
 
 # Canales de salida de GatedCNN: [96, 192, 384, 576]
 _out_channels = [96, 192, 384, 576]

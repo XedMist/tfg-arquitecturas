@@ -6,7 +6,7 @@
 # Canales: [96, 192, 320, 512]
 # ─────────────────────────────────────────────────────────────────────────────
 
-_base_ = ["./_base_faster_rcnn_metaformer.py"]
+_base_ = ["./_base_faster_rcnn_metaformer.py", "./_schedule_1x.py"]
 
 # DAT tiene canales distintos en stages 2-3
 _out_channels = [96, 192, 320, 512]

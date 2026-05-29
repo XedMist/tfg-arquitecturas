@@ -1,7 +1,6 @@
 _base_ = [
     "mmdet::_base_/models/faster-rcnn_r50_fpn.py",
     "mmdet::_base_/datasets/coco_detection.py",
-    "mmdet::_base_/schedules/schedule_1x.py",
     "mmdet::_base_/default_runtime.py",
 ]
 
@@ -10,13 +9,10 @@ custom_imports = dict(
     allow_failed_imports=False,
 )
 
-# 40 clases seleccionadas para el TFG (la mitad de COCO)
+# 20 clases seleccionadas para el TFG
 my_classes = (
     'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat', 'traffic light',
-    'fire hydrant', 'stop sign', 'parking meter', 'bench', 'bird', 'cat', 'dog', 'horse', 'sheep', 'cow',
-    'elephant', 'bear', 'zebra', 'giraffe', 'backpack', 'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee',
-    'skis', 'snowboard', 'sports ball', 'kite', 'baseball bat', 'baseball glove', 'skateboard', 'surfboard', 
-    'tennis racket', 'bottle'
+    'fire hydrant', 'stop sign', 'parking meter', 'bench', 'bird', 'cat', 'dog', 'horse', 'sheep', 'cow'
 )
 
 
@@ -60,7 +56,7 @@ model = dict(
             in_channels=256,
             fc_out_channels=1024,
             roi_feat_size=7,
-            num_classes=40,
+            num_classes=20,
             bbox_coder=dict(
                 type='DeltaXYWHBBoxCoder',
                 target_means=[0., 0., 0., 0.],
@@ -130,25 +126,7 @@ optim_wrapper = dict(
     ),
 )
 
-param_scheduler = [
-    dict(
-        type="LinearLR",
-        start_factor=0.001,
-        by_epoch=False,
-        begin=0,
-        end=500,  # 500 iteraciones de warmup
-    ),
-    dict(
-        type="MultiStepLR",
-        begin=0,
-        end=12,
-        by_epoch=True,
-        milestones=[8, 11],
-        gamma=0.1,
-    ),
-]
 
-train_cfg = dict(type="EpochBasedTrainLoop", max_epochs=12, val_interval=1)
 val_cfg = dict(type="ValLoop")
 test_cfg = dict(type="TestLoop")
 
