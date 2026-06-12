@@ -2,6 +2,7 @@ _BASE_: "/opt/Mask2Former/configs/coco/panoptic-segmentation/Base-COCO-PanopticS
 
 MODEL:
   META_ARCHITECTURE: "MaskFormer"
+  WEIGHTS: ""
   BACKBONE:
     NAME: "MetaformerBackbone"
   PIXEL_MEAN: [123.675, 116.280, 103.530]
@@ -9,7 +10,7 @@ MODEL:
 
   METAFORMER:
     ARCH_NAME: "gated_cnn-mamba"
-    WEIGHTS: ""
+    WEIGHTS: "checkpoints/mamba_whole_imagenette/last.ckpt"
     OUT_FEATURES: ["res2", "res3", "res4", "res5"]
     OUT_CHANNELS: [96, 192, 384, 576]
     OUT_STRIDES:  [4, 8, 16, 32]
@@ -63,15 +64,15 @@ SOLVER:
   OPTIMIZER: "ADAMW"
   BACKBONE_LR_MULTIPLIER: 0.1
   LR_SCHEDULER_NAME: "WarmupPolyLR"
-  MAX_ITER: 80000
-  WARMUP_FACTOR: 1.0
-  WARMUP_ITERS: 10
+  MAX_ITER: 360000
+  WARMUP_FACTOR: 0.1
+  WARMUP_ITERS: 1000
   WARMUP_METHOD: "linear"
   CLIP_GRADIENTS:
     ENABLED: true
     CLIP_TYPE: "norm"
     CLIP_VALUE: 0.01
-  CHECKPOINT_PERIOD: 5000
+  CHECKPOINT_PERIOD: 10000
 
 INPUT:
   IMAGE_SIZE: 800
@@ -89,7 +90,6 @@ DATASETS:
   TEST:  ("coco_2017_val_panoptic",)
 
 TEST:
-  EVAL_PERIOD: 5000
+  EVAL_PERIOD: 10000
 
 OUTPUT_DIR: "./output/metaformer_mamba_coco_panoptic"
-

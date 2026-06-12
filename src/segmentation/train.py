@@ -60,7 +60,11 @@ from mask2former import (
 )
 
 # Tu backbone
-from metaformer_backbone_d2 import MetaformerBackbone, add_metaformer_config  # noqa: F401
+from metaformer_backbone_d2 import (  # noqa: F401
+    MetaformerBackbone,
+    ResNet50Backbone,
+    add_metaformer_config,
+)
 
 logger = logging.getLogger("detectron2")
 
@@ -96,6 +100,7 @@ class MetaformerTrainer(DefaultTrainer):
             raise ValueError(f"Dataset mapper desconocido: {mapper_name}")
 
         from detectron2.data import build_detection_train_loader
+
         return build_detection_train_loader(cfg, mapper=mapper)
 
     # ------------------------------------------------------------------
@@ -112,26 +117,22 @@ class MetaformerTrainer(DefaultTrainer):
         # Segmentación semántica → mIoU
         if cfg.MODEL.MASK_ON is False:
             evaluators.append(
-                SemSegEvaluator(dataset_name, distributed=True, output_dir=output_folder)
+                SemSegEvaluator(
+                    dataset_name, distributed=True, output_dir=output_folder
+                )
             )
 
         # Segmentación de instancias → mask AP
         if cfg.MODEL.MASK_ON:
-            evaluators.append(
-                COCOEvaluator(dataset_name, output_dir=output_folder)
-            )
+            evaluators.append(COCOEvaluator(dataset_name, output_dir=output_folder))
 
         # Segmentación panóptica → PQ
         if hasattr(meta, "panoptic_root"):
-            evaluators.append(
-                COCOPanopticEvaluator(dataset_name, output_folder)
-            )
+            evaluators.append(COCOPanopticEvaluator(dataset_name, output_folder))
 
         # Fallback por si ninguno aplica
         if not evaluators:
-            evaluators.append(
-                COCOEvaluator(dataset_name, output_dir=output_folder)
-            )
+            evaluators.append(COCOEvaluator(dataset_name, output_dir=output_folder))
 
         return DatasetEvaluators(evaluators)
 
@@ -157,8 +158,14 @@ class MetaformerTrainer(DefaultTrainer):
                 continue
             is_backbone = "backbone" in name
             no_decay = any(
-                nd in name for nd in ["bias", "norm.weight", "norm.bias",
-                                      "LayerNorm.weight", "LayerNorm.bias"]
+                nd in name
+                for nd in [
+                    "bias",
+                    "norm.weight",
+                    "norm.bias",
+                    "LayerNorm.weight",
+                    "LayerNorm.bias",
+                ]
             )
             group = {
                 "params": [param],
@@ -198,9 +205,9 @@ class MetaformerTrainer(DefaultTrainer):
         logger.info("Evaluando con Test Time Augmentation (TTA)...")
         model = SemanticSegmentorWithTTA(cfg, model)
         evaluators = [
-            cls.build_evaluator(cfg, name, output_folder=os.path.join(
-                cfg.OUTPUT_DIR, "inference_TTA"
-            ))
+            cls.build_evaluator(
+                cfg, name, output_folder=os.path.join(cfg.OUTPUT_DIR, "inference_TTA")
+            )
             for name in cfg.DATASETS.TEST
         ]
         res = cls.test(cfg, model, evaluators)
@@ -217,7 +224,7 @@ def setup(args):
     # Añadir nodos de configuración de cada componente
     add_deeplab_config(cfg)
     add_maskformer2_config(cfg)
-    add_metaformer_config(cfg)   # tus nodos MODEL.METAFORMER.*
+    add_metaformer_config(cfg)  # tus nodos MODEL.METAFORMER.*
 
     cfg.merge_from_file(args.config_file)
     cfg.merge_from_list(args.opts)

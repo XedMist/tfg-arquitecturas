@@ -63,7 +63,19 @@ def _build_classifier(cfg: DictConfig) -> nn.Module:
     elif arch_name == "gated_cnn-dat":
         return _build_dat_backbone(cfg)
     else:
-        raise ValueError(f"Unknown arch {cfg.model.arch}")
+        try:
+            import timm
+            log.info(f"Intentando instanciar '{arch_name}' usando timm...")
+            model = timm.create_model(
+                arch_name,
+                pretrained=cfg.get("pretrained", False),
+                num_classes=cfg.get("num_classes", 10),
+                drop_rate=cfg.get("drop_rate", 0.0),
+                drop_path_rate=cfg.get("drop_path_rate", 0.0)
+            )
+            return model
+        except Exception as e:
+            raise ValueError(f"Unknown arch '{arch_name}' and failed to load via timm: {e}")
 
 
 def _build_dat_backbone(cfg: DictConfig) -> nn.Module:

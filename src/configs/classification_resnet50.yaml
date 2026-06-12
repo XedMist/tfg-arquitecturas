@@ -1,0 +1,114 @@
+# configs/classification_resnet50.yaml
+# Configuración para entrenamiento en ImageNet-1K (25% subset) - Baseline ResNet50
+
+defaults:
+  - _self_
+  - override hydra/launcher: basic
+
+# ── Experimento ────────────────────────────────────────────────────────────────
+experiment:
+  name: "baseline_resnet50_2"
+  task: "classification"          # classification | detection | segmentation
+  seed: 42
+  deterministic: false            # incompatible con benchmark=true
+  benchmark: true                 # input size fijo → activa optimizaciones CuDNN
+
+# ── Modelo ─────────────────────────────────────────────────────────────────────
+model:
+  arch: "resnet50"                # nombre compatible con timm
+  pretrained: true                # entrenamiento baseline preentrenado (cambiar a false si es desde cero)
+  num_classes: 1000
+  drop_rate: 0.0
+  drop_path_rate: 0.0             # resnet no suele usar drop_path alto
+
+# ── Dataset ────────────────────────────────────────────────────────────────────
+data:
+  name: "imagenet-1k"
+  root: "/datasets/imagenet"
+  num_classes: 1000
+  input_size: 224                 # Corregido: alineado con el crop size (224)
+  mean: [0.485, 0.456, 0.406]     # stats ImageNet
+  std:  [0.229, 0.224, 0.225]
+  workers: 8
+  pin_memory: true
+  prefetch_factor: 4              # Subido a 4 para mejor rendimiento con 8 workers
+  subset_fraction: 0.25           # Mantenido como pediste
+  subset_seed: 42
+
+# ── Augmentación ───────────────────────────────────────────────────────────────
+augmentation:
+  train:
+    random_resized_crop: 224
+    horizontal_flip_p: 0.5
+    auto_augment: "rand-m9-mstd0.5-inc1"  # RandAugment
+    re_prob: 0.25                         # Random Erasing
+    mixup_alpha: 0.8                      # MixUp
+    cutmix_alpha: 1.0                     # CutMix
+    color_jitter: {brightness: 0.4, contrast: 0.4, saturation: 0.4, hue: 0.1, p: 0.8}
+    grayscale_p: 0.02
+    gaussian_blur_p: 0.1
+  val:
+    resize: 256
+    center_crop: 224
+
+# ── Training ───────────────────────────────────────────────────────────────────
+training:
+  epochs: 60                      # Mantenido como pediste
+  batch_size: 256                 # por GPU
+  grad_accumulation_steps: 1
+  grad_clip_norm: 1.0
+  label_smoothing: 0.1            # Cross-entropy con label smoothing
+
+# ── Optimizador ────────────────────────────────────────────────────────────────
+optimizer:
+  name: "adamw"
+  lr: 1.0e-3                      # lr base (se escala con batch)
+  weight_decay: 0.05
+  betas: [0.9, 0.999]
+  eps: 1.0e-8
+  layer_decay: null               # útil para ViTs (ej: 0.75)
+
+# ── LR Scheduler ──────────────────────────────────────────────────────────────
+scheduler:
+  name: "cosine"
+  warmup_epochs: 5                # Warmup para el inicio con AdamW
+  warmup_lr_init: 1.0e-6
+  min_lr: 1.0e-6
+  # Eliminados milestones y gamma (no aplican para cosine)
+
+# ── Precisión y rendimiento ────────────────────────────────────────────────────
+precision:
+  amp: true                       # Automatic Mixed Precision (fp16/bf16)
+  compile: false                  # torch.compile (PyTorch 2.x, +15-30% velocidad)
+  compile_mode: "reduce-overhead" # "default" | "reduce-overhead" | "max-autotune"
+  channels_last: true             # NHWC memory format (más rápido en A30)
+
+# ── EMA ────────────────────────────────────────────────────────────────────────
+ema:
+  enabled: true
+  decay: 0.9999                   # Subido ligeramente para mayor estabilidad
+
+# ── Checkpointing ──────────────────────────────────────────────────────────────
+checkpoint:
+  dir: "checkpoints/${experiment.name}"
+  save_top_k: 3
+  monitor: "val/acc_top1"
+  mode: "max"
+  save_last: true
+  resume_from: null               # path a checkpoint para reanudar
+
+# ── Logging ────────────────────────────────────────────────────────────────────
+logging:
+  wandb:
+    enabled: true
+    project: "tfg-backbones"
+    entity: null                  # tu usuario de wandb
+    tags: ["classification", "resnet50", "baseline", "imagenet1k"]
+    log_model: true
+    log_freq: 50                  # cada N steps
+  tensorboard:
+    enabled: true
+    log_dir: "runs/${experiment.name}"
+  console:
+    log_every_n_steps: 10
+    progress_bar: true
